@@ -1,0 +1,4 @@
+# file: C:\Users\night\Documents\GitHub\AuthModeler\src\authmodeler\kerberos\as_exchange.py
+# hypothesis_version: 6.148.5
+
+[b'\x00', 'as_exchange_error', 'as_exchange_ready', 'as_reply_processed', 'big', 'built_as_request', 'enc_part too short', 'nonce_mismatch', 'preauth_required', 'starting_as_exchange', 'utf-8']

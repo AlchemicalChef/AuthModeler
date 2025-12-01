@@ -1,0 +1,4 @@
+# file: C:\Users\night\Documents\GitHub\AuthModeler\src\authmodeler\core\crypto.py
+# hypothesis_version: 6.148.5
+
+[b'\x00\x00', b'\x00\x00\x00\x00', b'\x01\x01', 128, 4096, 'md4', 'md5', 'sha1', 'sha256', 'utf-16-le', 'utf-8']

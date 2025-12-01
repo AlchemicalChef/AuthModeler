@@ -1,0 +1,4 @@
+# file: C:\Users\night\Documents\GitHub\AuthModeler\src\authmodeler\kerberos\types.py
+# hypothesis_version: 6.148.5
+
+[128, 129, 130, 167, 65536, 8388608, 33554432, 67108864, 134217728, 268435456, 536870912, 1073741824, 'datetime']

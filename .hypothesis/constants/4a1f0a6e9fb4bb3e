@@ -1,0 +1,4 @@
+# file: C:\Users\night\Documents\GitHub\AuthModeler\src\authmodeler\ad\authenticator.py
+# hypothesis_version: 6.148.5
+
+[389, 636, 'ADConfig', 'ad_authenticator', 'allow_ntlm_fallback', 'auth_events', 'authenticate_start', 'config', 'domain', 'kerberos', 'kerberos_trace', 'last_protocol', 'ntlm', 'ntlm_authenticate', 'ntlm_trace', 'preferred_protocol', 'protocol', 'state', 'success', 'timestamp']

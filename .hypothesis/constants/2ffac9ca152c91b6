@@ -1,0 +1,4 @@
+# file: C:\Users\night\Documents\GitHub\AuthModeler\src\authmodeler\kerberos\client.py
+# hypothesis_version: 6.148.5
+
+[b':', b'ST:', b'TGT:', b'native-tgt', b'|', '_uninitialized', 'authenticate_start', 'authenticate_success', 'built_ap_request', 'expiry', 'mutual_auth_complete', 'session_key', 'simulated', 'transport_mode', 'utf-8']

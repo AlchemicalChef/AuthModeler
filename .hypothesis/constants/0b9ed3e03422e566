@@ -1,0 +1,4 @@
+# file: C:\Users\night\Documents\GitHub\AuthModeler\src\authmodeler\ntlm\types.py
+# hypothesis_version: 6.148.5
+
+[b'\x00', b'NTLMSSP\x00', 128, 512, 4096, 8192, 32768, 65536, 131072, 524288, 1048576, 4194304, 8388608, 33554432, 536870912, 1073741824, 2147483648, 'AVPair', 'AV_PAIR too short', 'AuthenticateMessage', 'ChallengeMessage', 'NegotiateMessage', 'little', 'utf-16-le', 'utf-8']

@@ -1,0 +1,4 @@
+# file: C:\Users\night\Documents\GitHub\AuthModeler\src\authmodeler\core\exceptions.py
+# hypothesis_version: 6.148.5
+
+[3221225572, 3221225578, 3221225581, 3221225585, 3221225586, 3221225875, 3221225881, 'Clock skew too great', 'Replay detected', 'Ticket has expired']

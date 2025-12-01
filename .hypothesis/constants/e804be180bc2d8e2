@@ -1,0 +1,4 @@
+# file: C:\Users\night\Documents\GitHub\AuthModeler\src\authmodeler\ntlm\client.py
+# hypothesis_version: 6.148.5
+
+[b'\x00', b'FAIL', 10000000, 116444736000000000, '<Q', 'No server challenge', 'SSPI', 'authenticate_start', 'av_pair_parse_error', 'challenge_processed', 'native_ntlm_error', 'native_ntlm_success', 'simulated', 'sspi_init_failed', 'sspi_unavailable', 'transport_mode', 'utf-16-le']
