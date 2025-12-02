@@ -69,6 +69,71 @@ fact SpecialPrincipalIdentities {
 }
 
 -- =============================================================================
+-- ACCOUNT TYPES (For Attack Modeling)
+-- =============================================================================
+
+/**
+ * Service Principal Name (SPN) - identifies a service instance.
+ * Format: serviceclass/host:port/servicename (e.g., HTTP/webserver.corp.com)
+ * SPNs are targets for Kerberoasting attacks.
+ */
+sig ServicePrincipalName {
+    serviceClass: one Name,   -- e.g., HTTP, MSSQLSvc, LDAP
+    host: one Name            -- e.g., server.domain.com
+}
+
+/**
+ * Password strength classification for attack modeling.
+ * Weak passwords can be cracked offline; strong ones resist cracking.
+ */
+abstract sig PasswordStrength {}
+one sig WeakPassword extends PasswordStrength {}    -- Crackable offline
+one sig StrongPassword extends PasswordStrength {}  -- Resists offline cracking
+
+/**
+ * Service Account - account with SPN registered.
+ * These are targets for Kerberoasting attacks because:
+ * - Any domain user can request a service ticket
+ * - The ticket is encrypted with the service's password-derived key
+ * - Weak passwords can be cracked offline
+ */
+sig ServiceAccount extends Principal {
+    spn: one ServicePrincipalName,
+    passwordStrength: one PasswordStrength
+}
+
+/**
+ * Group Managed Service Account (gMSA) - automatic password rotation.
+ * These resist Kerberoasting due to 240+ character random passwords.
+ */
+sig GroupManagedServiceAccount extends ServiceAccount {} {
+    -- gMSA always has strong passwords (auto-generated, 240+ chars)
+    passwordStrength = StrongPassword
+}
+
+/**
+ * User Principal - standard user account.
+ * preAuthRequired flag determines vulnerability to AS-REP Roasting.
+ */
+sig UserPrincipal extends Principal {
+    -- If False, account is vulnerable to AS-REP Roasting
+    preAuthRequired: one Bool
+}
+
+/**
+ * Boolean type for configuration flags.
+ */
+abstract sig Bool {}
+one sig True, False extends Bool {}
+
+/**
+ * Fact: Service accounts have unique SPNs.
+ */
+fact UniqueSPNs {
+    no disj sa1, sa2: ServiceAccount | sa1.spn = sa2.spn
+}
+
+-- =============================================================================
 -- CRYPTOGRAPHIC MODEL
 -- =============================================================================
 

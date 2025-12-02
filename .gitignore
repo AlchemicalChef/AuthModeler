@@ -1,0 +1,38 @@
+# TLA+ Toolbox
+*.toolbox/
+*_SnapShot_*/
+*.out
+*.old
+*.log
+
+# TLC Model Checker
+states/
+*.dump
+
+# Alloy Analyzer
+*.als~
+*.thm
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python (if any scripts)
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+venv/
+.env
+
+# Build artifacts
+*.class
+*.jar

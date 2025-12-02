@@ -24,7 +24,12 @@ CONSTANTS
     Services,       \* Set of service principals
     KDC,           \* The Key Distribution Center
     KRBTGT,        \* Ticket Granting Service principal
-    MaxTime        \* Maximum time value for bounded checking
+    MaxTime         \* Maximum time value for bounded checking
+
+\* Attack modeling - defined as operators for TLC compatibility
+\* Override these definitions in the model if needed
+ServiceAccounts == Services    \* Default: all services are service accounts
+PreAuthDisabled == {}          \* Default: all clients require pre-auth (safe)
 
 (* =========================================================================
    TYPE DEFINITIONS
@@ -57,7 +62,7 @@ MessageTypes == {
 }
 
 \* Nonce type (bounded natural numbers)
-Nonces == 0..99
+Nonces == {"n_" \o ToString(i) : i \in 0..99}
 
 \* Time type (bounded)
 Times == 0..MaxTime
@@ -70,6 +75,19 @@ Tickets == {"t_" \o ToString(i) : i \in 1..20}
 
 \* Authenticator type (abstract identifier)
 Authenticators == {"auth_" \o ToString(i) : i \in 1..20}
+
+\* Password strength types for attack modeling
+PasswordStrengths == {"Weak", "Strong"}
+
+\* SPN (Service Principal Name) type
+SPNs == {"spn_" \o ToString(i) : i \in 1..10}
+
+\* Encryption types (for Kerberoasting detection)
+EncryptionTypes == {"AES256", "AES128", "RC4_HMAC"}
+
+\* NULL constant - represents absence of value
+\* Using a string that won't collide with other identifiers
+NULL == "NULL"
 
 (* =========================================================================
    VARIABLES
@@ -101,7 +119,11 @@ VARIABLES
     currentTime,        \* Current system time
 
     \* Ticket database (maps ticket ID to ticket data)
-    ticketDB            \* Function: Ticket -> TicketRecord
+    ticketDB,           \* Function: Ticket -> TicketRecord
+
+    \* Attack modeling variables
+    serviceAccountInfo, \* Function: ServiceAccount -> [spn, passwordStrength, encType]
+    userAccountInfo     \* Function: Client -> [preAuthRequired]
 
 \* Variable tuple for TLA+ spec composition
 vars == <<
@@ -109,7 +131,8 @@ vars == <<
     clientServiceKey, clientPendingNonce, clientTarget,
     serviceState, serviceAuthCache,
     kdcIssuedTickets, kdcPrincipalKeys,
-    network, messageHistory, currentTime, ticketDB
+    network, messageHistory, currentTime, ticketDB,
+    serviceAccountInfo, userAccountInfo
 >>
 
 (* =========================================================================
@@ -136,6 +159,9 @@ TypeInvariant ==
                                receiver: Clients \cup Services \cup {KDC}])
     \* Ticket database type constraint
     /\ DOMAIN ticketDB \subseteq Tickets
+    \* Attack modeling variable type constraints
+    /\ serviceAccountInfo \in [ServiceAccounts -> [spn: SPNs, passwordStrength: PasswordStrengths, encType: EncryptionTypes]]
+    /\ userAccountInfo \in [Clients -> [preAuthRequired: BOOLEAN]]
 
 (* =========================================================================
    MESSAGE STRUCTURES
@@ -282,12 +308,41 @@ UsedKeys ==
 UsedAuthenticators ==
     UNION {serviceAuthCache[s] : s \in Services}
 
-\* NULL constant - represents absence of value
-\* Using a distinct string constant to avoid CHOOSE issues with empty sets
-NULL == "NULL_VALUE"
+\* Safety check: NULL must not collide with valid identifiers
+ASSUME NULL \notin (Nonces \cup Keys \cup Tickets \cup Authenticators)
 
-\* Safety check: NULL must not collide with any principal/key/ticket/nonce values
-ASSUME NULL \notin (Clients \cup Services \cup Keys \cup Tickets \cup Nonces)
+(* =========================================================================
+   ATTACK MODELING HELPERS
+   ========================================================================= *)
+
+\* Check if a service is a ServiceAccount (has SPN)
+IsServiceAccount(s) == s \in ServiceAccounts
+
+\* Check if a service account has weak password (Kerberoasting target)
+HasWeakPassword(s) ==
+    /\ IsServiceAccount(s)
+    /\ serviceAccountInfo[s].passwordStrength = "Weak"
+
+\* Check if a service account uses RC4 encryption (easier to crack)
+UsesRC4Encryption(s) ==
+    /\ IsServiceAccount(s)
+    /\ serviceAccountInfo[s].encType = "RC4_HMAC"
+
+\* Check if a client requires pre-authentication
+RequiresPreAuth(c) ==
+    c \in Clients /\ userAccountInfo[c].preAuthRequired
+
+\* Check if a client is vulnerable to AS-REP Roasting
+IsASREPRoastable(c) ==
+    c \in Clients /\ ~userAccountInfo[c].preAuthRequired
+
+\* Get all Kerberoasting targets (service accounts with weak passwords)
+KerberoastingTargets ==
+    {s \in ServiceAccounts : HasWeakPassword(s)}
+
+\* Get all AS-REP Roasting targets (clients without pre-auth)
+ASREPRoastingTargets ==
+    {c \in Clients : IsASREPRoastable(c)}
 
 (* =========================================================================
    INITIAL STATE
@@ -309,6 +364,9 @@ Init ==
     /\ messageHistory = <<>>
     /\ currentTime = 0
     /\ ticketDB = [t \in {} |-> NULL]
+    \* Initialize attack modeling variables
+    /\ serviceAccountInfo \in [ServiceAccounts -> [spn: SPNs, passwordStrength: PasswordStrengths, encType: EncryptionTypes]]
+    /\ userAccountInfo = [c \in Clients |-> [preAuthRequired |-> c \notin PreAuthDisabled]]
 
 (* =========================================================================
    CLIENT ACTIONS
@@ -327,7 +385,7 @@ SendASRequest(c) ==
                    clientServiceKey, clientTarget,
                    serviceState, serviceAuthCache,
                    kdcIssuedTickets, kdcPrincipalKeys,
-                   currentTime, ticketDB>>
+                   currentTime, ticketDB, serviceAccountInfo, userAccountInfo>>
 
 \* Client processes AS-REP
 ProcessASReply(c) ==
@@ -344,7 +402,7 @@ ProcessASReply(c) ==
     /\ UNCHANGED <<clientServiceTicket, clientServiceKey, clientTarget,
                    serviceState, serviceAuthCache,
                    kdcIssuedTickets, kdcPrincipalKeys,
-                   messageHistory, currentTime, ticketDB>>
+                   messageHistory, currentTime, ticketDB, serviceAccountInfo, userAccountInfo>>
 
 \* Client sends TGS-REQ for service ticket
 SendTGSRequest(c, s) ==
@@ -362,7 +420,7 @@ SendTGSRequest(c, s) ==
     /\ UNCHANGED <<clientTGT, clientTGTKey, clientServiceTicket, clientServiceKey,
                    serviceState, serviceAuthCache,
                    kdcIssuedTickets, kdcPrincipalKeys,
-                   currentTime, ticketDB>>
+                   currentTime, ticketDB, serviceAccountInfo, userAccountInfo>>
 
 \* Client processes TGS-REP
 ProcessTGSReply(c) ==
@@ -379,7 +437,7 @@ ProcessTGSReply(c) ==
     /\ UNCHANGED <<clientTGT, clientTGTKey, clientTarget,
                    serviceState, serviceAuthCache,
                    kdcIssuedTickets, kdcPrincipalKeys,
-                   messageHistory, currentTime, ticketDB>>
+                   messageHistory, currentTime, ticketDB, serviceAccountInfo, userAccountInfo>>
 
 \* Client sends AP-REQ to service
 SendAPRequest(c) ==
@@ -396,7 +454,7 @@ SendAPRequest(c) ==
                    clientServiceKey, clientPendingNonce, clientTarget,
                    serviceState, serviceAuthCache,
                    kdcIssuedTickets, kdcPrincipalKeys,
-                   currentTime, ticketDB>>
+                   currentTime, ticketDB, serviceAccountInfo, userAccountInfo>>
 
 \* Client processes AP-REP (mutual authentication)
 ProcessAPReply(c) ==
@@ -410,7 +468,7 @@ ProcessAPReply(c) ==
                    clientServiceKey, clientPendingNonce, clientTarget,
                    serviceState, serviceAuthCache,
                    kdcIssuedTickets, kdcPrincipalKeys,
-                   messageHistory, currentTime, ticketDB>>
+                   messageHistory, currentTime, ticketDB, serviceAccountInfo, userAccountInfo>>
 
 (* =========================================================================
    KDC ACTIONS
@@ -441,7 +499,7 @@ KDCProcessASRequest ==
         /\ UNCHANGED <<clientState, clientTGT, clientTGTKey, clientServiceTicket,
                        clientServiceKey, clientPendingNonce, clientTarget,
                        serviceState, serviceAuthCache,
-                       kdcPrincipalKeys, currentTime>>
+                       kdcPrincipalKeys, currentTime, serviceAccountInfo, userAccountInfo>>
 
 \* KDC processes TGS-REQ and sends TGS-REP
 KDCProcessTGSRequest ==
@@ -469,7 +527,7 @@ KDCProcessTGSRequest ==
         /\ UNCHANGED <<clientState, clientTGT, clientTGTKey, clientServiceTicket,
                        clientServiceKey, clientPendingNonce, clientTarget,
                        serviceState, serviceAuthCache,
-                       kdcPrincipalKeys, currentTime>>
+                       kdcPrincipalKeys, currentTime, serviceAccountInfo, userAccountInfo>>
 
 (* =========================================================================
    SERVICE ACTIONS
@@ -501,7 +559,7 @@ ServiceProcessAPRequest(s) ==
                                        ![s] = @ \cup {msg.authenticator}]
     /\ UNCHANGED <<clientState, clientTGT, clientTGTKey, clientServiceTicket,
                    clientServiceKey, clientPendingNonce, clientTarget,
-                   kdcIssuedTickets, kdcPrincipalKeys, currentTime, ticketDB>>
+                   kdcIssuedTickets, kdcPrincipalKeys, currentTime, ticketDB, serviceAccountInfo, userAccountInfo>>
 
 (* =========================================================================
    TIME PROGRESSION
@@ -515,7 +573,7 @@ Tick ==
                    clientServiceKey, clientPendingNonce, clientTarget,
                    serviceState, serviceAuthCache,
                    kdcIssuedTickets, kdcPrincipalKeys,
-                   network, messageHistory, ticketDB>>
+                   network, messageHistory, ticketDB, serviceAccountInfo, userAccountInfo>>
 
 (* =========================================================================
    NEXT STATE RELATION
